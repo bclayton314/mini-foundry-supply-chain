@@ -1,0 +1,6 @@
+inventory_id,part_id,current_stock,reorder_threshold,warehouse_location
+INV-001,PART-001,25,40,Dallas
+INV-002,PART-002,80,50,Chicago
+INV-003,PART-003,15,30,Atlanta
+INV-004,PART-004,10,25,Seattle
+INV-005,PART-005,500,100,Denver

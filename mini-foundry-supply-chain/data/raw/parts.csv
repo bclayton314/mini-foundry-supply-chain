@@ -1,0 +1,6 @@
+part_id,part_name,category,criticality,supplier_id
+PART-001,Hydraulic Pump,Mechanical,HIGH,SUP-001
+PART-002,Control Sensor,Electronics,HIGH,SUP-005
+PART-003,Aluminum Bracket,Mechanical,MEDIUM,SUP-004
+PART-004,Power Regulator,Electronics,HIGH,SUP-003
+PART-005,Rubber Seal,Mechanical,LOW,SUP-002
