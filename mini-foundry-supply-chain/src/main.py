@@ -1,12 +1,6 @@
 from ontology.build_ontology import build_ontology
-from ontology.queries import (
-    find_delayed_high_criticality_shipments,
-    find_delayed_shipments_with_part_details,
-    find_high_criticality_low_stock_parts,
-    find_low_stock_inventory,
-    find_parts_from_watchlisted_suppliers,
-)
 from ontology.relationships import build_supply_chain_graph
+from risk.scoring import generate_risk_alerts
 from transforms.run_transforms import run_all_transforms
 
 
@@ -20,44 +14,38 @@ def print_section(title: str) -> None:
     print("=" * 80)
 
 
-def print_results(results: list[dict]) -> None:
+def print_alerts(alerts: list) -> None:
     """
-    Print query results.
+    Print risk alerts in priority order.
     """
-    if not results:
-        print("No results found.")
+    if not alerts:
+        print("No risk alerts found.")
         return
 
-    for index, result in enumerate(results, start=1):
-        print(f"{index}. {result}")
+    for index, alert in enumerate(alerts, start=1):
+        print(f"{index}. [{alert.severity.value}] {alert.alert_type.value}")
+        print(f"   Alert ID: {alert.alert_id}")
+        print(f"   Message: {alert.message}")
+        print(f"   Related Object: {alert.related_object_type} {alert.related_object_id}")
+        print(f"   Recommended Action: {alert.recommended_action}")
+        print()
 
 
 def main() -> None:
     """
     Run transforms, build ontology objects, build relationships,
-    and run relationship-based business queries.
+    and generate risk alerts.
     """
     cleaned_data = run_all_transforms()
     ontology = build_ontology(cleaned_data)
     graph = build_supply_chain_graph(ontology)
+    alerts = generate_risk_alerts(graph)
 
     print()
-    print("Supply chain relationship graph built successfully.")
+    print("Risk scoring completed successfully.")
 
-    print_section("Parts From Watchlisted Suppliers")
-    print_results(find_parts_from_watchlisted_suppliers(graph))
-
-    print_section("Delayed Shipments With Supplier and Part Details")
-    print_results(find_delayed_shipments_with_part_details(graph))
-
-    print_section("Low Stock Inventory")
-    print_results(find_low_stock_inventory(graph))
-
-    print_section("High-Criticality Low-Stock Parts")
-    print_results(find_high_criticality_low_stock_parts(graph))
-
-    print_section("Delayed High-Criticality Shipments")
-    print_results(find_delayed_high_criticality_shipments(graph))
+    print_section("Prioritized Risk Alerts")
+    print_alerts(alerts)
 
 
 if __name__ == "__main__":

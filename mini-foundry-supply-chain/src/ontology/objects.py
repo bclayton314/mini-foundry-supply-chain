@@ -23,6 +23,21 @@ class ShipmentStatus(str, Enum):
     CANCELLED = "CANCELLED"
 
 
+class RiskSeverity(str, Enum):
+    LOW = "LOW"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"
+    CRITICAL = "CRITICAL"
+
+
+class RiskAlertType(str, Enum):
+    LOW_INVENTORY = "LOW_INVENTORY"
+    DELAYED_SHIPMENT = "DELAYED_SHIPMENT"
+    WATCHLISTED_SUPPLIER = "WATCHLISTED_SUPPLIER"
+    CRITICAL_PART_LOW_STOCK = "CRITICAL_PART_LOW_STOCK"
+    CRITICAL_PART_DELAYED_SHIPMENT = "CRITICAL_PART_DELAYED_SHIPMENT"
+
+
 class Supplier(BaseModel):
     supplier_id: str
     supplier_name: str
@@ -54,3 +69,13 @@ class InventoryItem(BaseModel):
     current_stock: int = Field(ge=0)
     reorder_threshold: int = Field(ge=0)
     warehouse_location: str
+
+
+class RiskAlert(BaseModel):
+    alert_id: str
+    alert_type: RiskAlertType
+    severity: RiskSeverity
+    message: str
+    related_object_type: str
+    related_object_id: str
+    recommended_action: str
