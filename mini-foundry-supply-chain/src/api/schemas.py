@@ -23,6 +23,14 @@ class RiskAlertResponse(BaseModel):
     related_object_type: str
     related_object_id: str
     recommended_action: str
+    status: str
+    status_note: str | None
+    acknowledged_by: str | None
+    acknowledged_at: datetime | None
+    resolved_by: str | None
+    resolved_at: datetime | None
+    dismissed_by: str | None
+    dismissed_at: datetime | None
     created_at: datetime
 
 
@@ -67,9 +75,19 @@ class MarkSupplierWatchlistRequest(BaseModel):
     reason: str = Field(..., examples=["Repeated shipment delays."])
 
 
+class AcknowledgeAlertRequest(BaseModel):
+    user: str = Field(..., examples=["clayton"])
+    note: str = Field(..., examples=["Review started."])
+
+
 class ResolveAlertRequest(BaseModel):
     user: str = Field(..., examples=["clayton"])
     resolution_note: str = Field(
         ...,
         examples=["Mitigation action created and assigned for follow-up."],
     )
+
+
+class DismissAlertRequest(BaseModel):
+    user: str = Field(..., examples=["clayton"])
+    note: str = Field(..., examples=["Duplicate of another alert."])

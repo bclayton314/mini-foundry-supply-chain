@@ -5,17 +5,18 @@ from actions.operations import (
     create_reorder_request,
     expedite_shipment,
     mark_supplier_watchlist,
-    resolve_alert,
 )
 from ontology.build_ontology import build_ontology
-from ontology.objects import RiskAlert
 from ontology.relationships import build_supply_chain_graph
 from persistence.db import get_session, init_db
 from persistence.models import ActionResultRecord, ReorderRequestRecord, RiskAlertRecord
 from persistence.repositories import (
+    acknowledge_alert,
+    dismiss_alert,
     list_open_reorder_requests,
     list_recent_actions,
     list_recent_alerts,
+    resolve_alert_record,
     save_action_and_side_effects,
     save_risk_alerts,
 )
@@ -23,13 +24,17 @@ from risk.scoring import generate_risk_alerts
 from transforms.run_transforms import run_all_transforms
 
 
+VALID_ALERT_STATUSES = {
+    "OPEN",
+    "ACKNOWLEDGED",
+    "RESOLVED",
+    "DISMISSED",
+}
+
+
 def build_current_graph_and_alerts():
     """
     Run the current local data pipeline and return graph + generated alerts.
-
-    For Stage 8, this keeps the API simple:
-    each action endpoint can rebuild the latest in-memory ontology graph
-    from the current CSV files.
     """
     cleaned_data = run_all_transforms()
     ontology = build_ontology(cleaned_data)
@@ -64,6 +69,14 @@ def serialize_alert_record(record: RiskAlertRecord) -> dict:
         "related_object_type": record.related_object_type,
         "related_object_id": record.related_object_id,
         "recommended_action": record.recommended_action,
+        "status": record.status,
+        "status_note": record.status_note,
+        "acknowledged_by": record.acknowledged_by,
+        "acknowledged_at": record.acknowledged_at,
+        "resolved_by": record.resolved_by,
+        "resolved_at": record.resolved_at,
+        "dismissed_by": record.dismissed_by,
+        "dismissed_at": record.dismissed_at,
         "created_at": record.created_at,
     }
 
@@ -107,14 +120,25 @@ def serialize_reorder_request_record(record: ReorderRequestRecord) -> dict:
     }
 
 
-def get_alert_records(limit: int = 20) -> list[dict]:
+def get_alert_records(
+    limit: int = 20,
+    status: str | None = None,
+) -> list[dict]:
     """
     Return recent alert records from SQLite.
+
+    Optionally filter by lifecycle status.
     """
     init_db()
 
+    normalized_status = status.upper() if status else None
+
     with get_session() as session:
-        records = list_recent_alerts(session, limit=limit)
+        records = list_recent_alerts(
+            session,
+            limit=limit,
+            status=normalized_status,
+        )
         return [serialize_alert_record(record) for record in records]
 
 
@@ -205,52 +229,68 @@ def execute_mark_supplier_watchlist_action(
     return result
 
 
-def find_generated_alert_by_id(alert_id: str) -> RiskAlert | None:
+def execute_acknowledge_alert_action(
+    alert_id: str,
+    user: str,
+    note: str,
+) -> ActionResult:
     """
-    Find an alert by regenerating the current alert set from local data.
-
-    This is simple for Stage 8. Later, you could resolve alerts directly
-    from persisted DB records and add lifecycle state.
+    Acknowledge a persisted alert.
     """
-    _, alerts = build_current_graph_and_alerts()
+    init_db()
 
-    for alert in alerts:
-        if alert.alert_id == alert_id:
-            return alert
-
-    return None
+    with get_session() as session:
+        return acknowledge_alert(
+            session=session,
+            alert_id=alert_id,
+            user=user,
+            note=note,
+        )
 
 
 def execute_resolve_alert_action(
     alert_id: str,
     user: str,
     resolution_note: str,
-) -> ActionResult | None:
+) -> ActionResult:
     """
-    Resolve an alert and persist the action result.
-
-    Returns None if the alert does not exist in the current generated alert set.
+    Resolve a persisted alert.
     """
-    alert = find_generated_alert_by_id(alert_id)
+    init_db()
 
-    if alert is None:
-        return None
+    with get_session() as session:
+        return resolve_alert_record(
+            session=session,
+            alert_id=alert_id,
+            user=user,
+            note=resolution_note,
+        )
 
-    result = resolve_alert(
-        alert=alert,
-        user=user,
-        resolution_note=resolution_note,
-    )
-    save_action_result(result)
-    return result
+
+def execute_dismiss_alert_action(
+    alert_id: str,
+    user: str,
+    note: str,
+) -> ActionResult:
+    """
+    Dismiss a persisted alert.
+    """
+    init_db()
+
+    with get_session() as session:
+        return dismiss_alert(
+            session=session,
+            alert_id=alert_id,
+            user=user,
+            note=note,
+        )
 
 
 def serialize_action_result(result: ActionResult) -> dict:
     """
     Convert an in-memory ActionResult into an API response dictionary.
 
-    id is set to 0 because the SQLAlchemy database id is generated after insert.
-    In Stage 9 or 10, we can improve this by returning the inserted DB record.
+    id is set to 0 because the inserted SQLAlchemy id is generated after insert.
     """
     return {
         "id": 0,

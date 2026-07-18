@@ -38,6 +38,13 @@ class RiskAlertType(str, Enum):
     CRITICAL_PART_DELAYED_SHIPMENT = "CRITICAL_PART_DELAYED_SHIPMENT"
 
 
+class AlertStatus(str, Enum):
+    OPEN = "OPEN"
+    ACKNOWLEDGED = "ACKNOWLEDGED"
+    RESOLVED = "RESOLVED"
+    DISMISSED = "DISMISSED"
+
+
 class Supplier(BaseModel):
     supplier_id: str
     supplier_name: str
@@ -79,3 +86,4 @@ class RiskAlert(BaseModel):
     related_object_type: str
     related_object_id: str
     recommended_action: str
+    status: AlertStatus = AlertStatus.OPEN

@@ -16,6 +16,19 @@ class RiskAlertRecord(Base):
     related_object_type: Mapped[str] = mapped_column(String(128), nullable=False)
     related_object_id: Mapped[str] = mapped_column(String(128), nullable=False)
     recommended_action: Mapped[str] = mapped_column(Text, nullable=False)
+
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="OPEN")
+    status_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    acknowledged_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    resolved_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    dismissed_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    dismissed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
 
 

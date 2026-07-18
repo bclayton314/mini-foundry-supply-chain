@@ -1,7 +1,9 @@
 from fastapi import FastAPI, HTTPException, Query
 
 from api.schemas import (
+    AcknowledgeAlertRequest,
     ActionResultResponse,
+    DismissAlertRequest,
     ExpediteShipmentRequest,
     HealthResponse,
     MarkSupplierWatchlistRequest,
@@ -12,6 +14,9 @@ from api.schemas import (
     RiskAlertResponse,
 )
 from api.service import (
+    VALID_ALERT_STATUSES,
+    execute_acknowledge_alert_action,
+    execute_dismiss_alert_action,
     execute_expedite_action,
     execute_mark_supplier_watchlist_action,
     execute_reorder_action,
@@ -29,9 +34,9 @@ app = FastAPI(
     title="Mini Foundry Supply Chain API",
     description=(
         "A Foundry-inspired operational ontology API for supply chain risk, "
-        "actions, and auditability."
+        "actions, alert lifecycle state, and auditability."
     ),
-    version="0.1.0",
+    version="0.2.0",
 )
 
 
@@ -65,8 +70,24 @@ def run_pipeline() -> PipelineRunResponse:
 @app.get("/alerts", response_model=list[RiskAlertResponse])
 def list_alerts(
     limit: int = Query(default=20, ge=1, le=100),
+    status: str | None = Query(
+        default=None,
+        description="Optional lifecycle status: OPEN, ACKNOWLEDGED, RESOLVED, or DISMISSED.",
+    ),
 ) -> list[dict]:
-    return get_alert_records(limit=limit)
+    if status is not None and status.upper() not in VALID_ALERT_STATUSES:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Invalid alert status. Expected one of: "
+                "OPEN, ACKNOWLEDGED, RESOLVED, DISMISSED."
+            ),
+        )
+
+    return get_alert_records(
+        limit=limit,
+        status=status,
+    )
 
 
 @app.get("/actions", response_model=list[ActionResultResponse])
@@ -118,6 +139,23 @@ def mark_supplier_watchlist_endpoint(
     return serialize_action_result(result)
 
 
+@app.post("/alerts/{alert_id}/acknowledge", response_model=ActionResultResponse)
+def acknowledge_alert_endpoint(
+    alert_id: str,
+    request: AcknowledgeAlertRequest,
+) -> dict:
+    result = execute_acknowledge_alert_action(
+        alert_id=alert_id,
+        user=request.user,
+        note=request.note,
+    )
+
+    if result.status.value == "FAILED" and "not found" in result.message.lower():
+        raise HTTPException(status_code=404, detail=result.message)
+
+    return serialize_action_result(result)
+
+
 @app.post("/alerts/{alert_id}/resolve", response_model=ActionResultResponse)
 def resolve_alert_endpoint(
     alert_id: str,
@@ -129,10 +167,24 @@ def resolve_alert_endpoint(
         resolution_note=request.resolution_note,
     )
 
-    if result is None:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Alert {alert_id} was not found.",
-        )
+    if result.status.value == "FAILED" and "not found" in result.message.lower():
+        raise HTTPException(status_code=404, detail=result.message)
+
+    return serialize_action_result(result)
+
+
+@app.post("/alerts/{alert_id}/dismiss", response_model=ActionResultResponse)
+def dismiss_alert_endpoint(
+    alert_id: str,
+    request: DismissAlertRequest,
+) -> dict:
+    result = execute_dismiss_alert_action(
+        alert_id=alert_id,
+        user=request.user,
+        note=request.note,
+    )
+
+    if result.status.value == "FAILED" and "not found" in result.message.lower():
+        raise HTTPException(status_code=404, detail=result.message)
 
     return serialize_action_result(result)
